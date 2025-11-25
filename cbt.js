@@ -2,13 +2,15 @@
 const csvUrl = "https://raw.githubusercontent.com/sw-J85/interior/main/data/questions.csv";
 
 
+
 // CSV 파싱
 async function loadCSV() {
     const res = await fetch(csvUrl);
     const text = await res.text();
-    const lines = text.split("\n").map(l => l.split(","));
-    return lines;
+    const parsed = Papa.parse(text, { header: true }).data;
+    return parsed;
 }
+
 
 // 랜덤 문제 한 개 골라서 보여주기
 let currentQuestion = null;
