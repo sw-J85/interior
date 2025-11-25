@@ -8,7 +8,8 @@ const CSV_HEADERS = [
 ];
 
 // GitHub raw CSV URL — 본인 repo 기준
-const CSV_URL = "https://raw.githubusercontent.com/sw-J85/interior/main/data/questions.csv";
+const CSV_URL = "data/questions.csv";
+
 
 
 // ============================
