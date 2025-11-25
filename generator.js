@@ -70,7 +70,7 @@ function generateQuestionCode(unit, type, number) {
 
 
 // ============================
-// 5) OpenAI에게 문제 생성 요청
+// 5) GPT 문제 생성 요청 (JSON 정리 포함)
 // ============================
 async function requestQuestion(unit, qtype) {
     const apiKey = localStorage.getItem("openai_api_key");
@@ -80,11 +80,12 @@ async function requestQuestion(unit, qtype) {
     }
 
     const prompt = `
-다음 조건의 CBT 문제를 생성해라.
-단원: ${unit}
-문제유형: ${qtype}
+당신은 '실내건축기사 CBT 문제 생성기'입니다.
+출력은 반드시 아래 JSON 구조만 반환하세요.
+절대 \`\`\`json, \`\`\` 같은 코드블록을 추가하지 마세요.
+문자열만 포함된 순수 JSON만 출력하세요.
 
-출력 형식(JSON):
+JSON 형식:
 {
 "문제": "",
 "선택지1": "",
@@ -99,6 +100,9 @@ async function requestQuestion(unit, qtype) {
 "근거페이지": "",
 "핵심요약": ""
 }
+
+단원: ${unit}
+문제유형: ${qtype}
 `;
 
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -109,17 +113,28 @@ async function requestQuestion(unit, qtype) {
         },
         body: JSON.stringify({
             model: "gpt-4o-mini",
-            messages: [{ role: "user", content: prompt }]
+            messages: [
+                { role: "system", content: "순수 JSON만 출력하라." },
+                { role: "user", content: prompt }
+            ],
+            temperature: 0.3
         })
     });
 
     const data = await res.json();
-    let text = data.choices[0].message.content.trim();
+    let rawText = data.choices?.[0]?.message?.content?.trim() || "";
+
+    // ========== JSON 정리 추가 ==========
+    let cleaned = rawText
+        .replace(/```json/g, "")
+        .replace(/```/g, "")
+        .trim();
 
     try {
-        return JSON.parse(text);
-    } catch {
-        console.error("JSON 파싱 실패:", text);
+        return JSON.parse(cleaned);
+    } catch (e) {
+        console.error("JSON 파싱 실패:", cleaned);
+        alert("GPT가 올바른 JSON을 반환하지 않았습니다.");
         return null;
     }
 }
@@ -152,7 +167,7 @@ function buildCSVRow(number, unit, type, author, q) {
 
 
 // ============================
-// 7) 다운로드용 CSV 만들기
+// 7) CSV 다운로드
 // ============================
 function downloadCSV(rows) {
     const csv = Papa.unparse(rows, { header: true });
@@ -166,7 +181,7 @@ function downloadCSV(rows) {
 
 
 // ============================
-// 8) 메인 로직: 문제 생성 버튼 이벤트
+// 8) 메인 로직
 // ============================
 document.getElementById("generateBtn").addEventListener("click", async () => {
     const unit = document.getElementById("unitSelect").value;
@@ -179,7 +194,6 @@ document.getElementById("generateBtn").addEventListener("click", async () => {
         return;
     }
 
-    // 기존 CSV 가져오기 → 문항번호 증가용
     const oldRows = await loadExistingCSV();
     let startNumber = getLastQuestionNumber(oldRows);
 
@@ -194,7 +208,6 @@ document.getElementById("generateBtn").addEventListener("click", async () => {
         const row = buildCSVRow(number, unit, type, author, q);
         newRows.push(row);
 
-        // 미리보기 표시
         document.getElementById("previewBox").innerHTML += `
             <div class="preview-item">
                 <b>${number}. ${row.문제}</b><br>
