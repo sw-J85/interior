@@ -7,20 +7,37 @@ const CSV_HEADERS = [
     "핵심요약","문제코드","출제자"
 ];
 
-// GitHub raw CSV URL — 본인 repo 기준
+// ⭐ GitHub raw CSV URL (정확한 경로)
 const CSV_URL = "https://raw.githubusercontent.com/sw-J85/interior/main/data/questions.csv";
 
 
 // ============================
-// 2) CSV 불러오기
+// 2) CSV 불러오기 (CORS 대응 + 안정 버전)
 // ============================
 async function loadExistingCSV() {
     try {
-        const res = await fetch(CSV_URL);
-        const text = await res.text();
-        const parsed = Papa.parse(text, { header: true });
+        const res = await fetch(CSV_URL, {
+            headers: {
+                "Cache-Control": "no-cache"
+            }
+        });
 
-        return parsed.data.filter(row => row["문항번호"] && row["문항번호"].trim() !== "");
+        if (!res.ok) {
+            console.error("CSV fetch 실패:", res.status);
+            return [];
+        }
+
+        const text = await res.text();
+
+        if (!text.trim()) {
+            console.warn("CSV 파일이 비어 있음");
+            return [];
+        }
+
+        const parsed = Papa.parse(text, { header: true, skipEmptyLines: true }).data;
+
+        return parsed.filter(row => row["문항번호"] && row["문항번호"].trim() !== "");
+
     } catch (err) {
         console.error("CSV 불러오기 실패:", err);
         return [];
@@ -29,20 +46,18 @@ async function loadExistingCSV() {
 
 
 // ============================
-// 3) 마지막 문항번호 찾기
+// 3) 마지막 문항번호
 // ============================
 function getLastQuestionNumber(rows) {
     if (rows.length === 0) return 1;
 
     let nums = rows.map(r => parseInt(r["문항번호"])).filter(n => !isNaN(n));
-    let maxNum = Math.max(...nums);
-
-    return maxNum + 1;
+    return Math.max(...nums) + 1;
 }
 
 
 // ============================
-// 4) 문제코드 자동 생성
+// 4) 문제 코드 자동 생성
 // ============================
 function generateQuestionCode(unit, type, number) {
     const unitCode = {
@@ -70,7 +85,7 @@ function generateQuestionCode(unit, type, number) {
 
 
 // ============================
-// 5) GPT 문제 생성 요청 (JSON 정리 포함)
+// 5) GPT 문제 생성 요청
 // ============================
 async function requestQuestion(unit, qtype) {
     const apiKey = localStorage.getItem("openai_api_key");
@@ -81,9 +96,10 @@ async function requestQuestion(unit, qtype) {
 
     const prompt = `
 당신은 '실내건축기사 CBT 문제 생성기'입니다.
-출력은 반드시 아래 JSON 구조만 반환하세요.
-절대 \`\`\`json, \`\`\` 같은 코드블록을 추가하지 마세요.
-문자열만 포함된 순수 JSON만 출력하세요.
+출력은 반드시 JSON 구조만 반환하세요.
+
+단원: ${unit}
+문제유형: ${qtype}
 
 JSON 형식:
 {
@@ -100,9 +116,6 @@ JSON 형식:
 "근거페이지": "",
 "핵심요약": ""
 }
-
-단원: ${unit}
-문제유형: ${qtype}
 `;
 
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -124,7 +137,6 @@ JSON 형식:
     const data = await res.json();
     let rawText = data.choices?.[0]?.message?.content?.trim() || "";
 
-    // ========== JSON 정리 추가 ==========
     let cleaned = rawText
         .replace(/```json/g, "")
         .replace(/```/g, "")
@@ -167,28 +179,7 @@ function buildCSVRow(number, unit, type, author, q) {
 
 
 // ============================
-// 7) CSV 다운로드 (UTF-8 BOM 추가 버전)
-// ============================
-function downloadCSV(rows) {
-    const csv = Papa.unparse(rows, { header: true });
-
-    // ⭐ Excel 한글 깨짐 방지: UTF-8 BOM 추가
-    const BOM = "\uFEFF";
-
-    const blob = new Blob([BOM + csv], {
-        type: "text/csv;charset=utf-8;"
-    });
-
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "generated_questions.csv";
-    link.click();
-}
-
-
-
-// ============================
-// 8) 메인 로직 — 자동 merge 버전
+// 7) 메인 로직 — 자동 merge 버전
 // ============================
 document.getElementById("generateBtn").addEventListener("click", async () => {
     const unit = document.getElementById("unitSelect").value;
@@ -217,7 +208,6 @@ document.getElementById("generateBtn").addEventListener("click", async () => {
         const row = buildCSVRow(number, unit, type, author, q);
         newRows.push(row);
 
-        // 미리보기 표시
         document.getElementById("previewBox").innerHTML += `
             <div class="preview-item">
                 <b>${number}. ${row.문제}</b><br>
@@ -226,21 +216,23 @@ document.getElementById("generateBtn").addEventListener("click", async () => {
         `;
     }
 
-    // 3) 기존 CSV + 신규 문제 자동 merge
+    // 3) merge
     const merged = [...oldRows, ...newRows];
 
-    // 4) 자동 merge된 최신 questions.csv 다운로드
+    // 4) 다운로드 (Excel 한글 깨짐 방지)
     const csv = Papa.unparse(merged, { header: true });
     const BOM = "\uFEFF";
-    const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8;" });
+
+    const blob = new Blob([BOM + csv], {
+        type: "text/csv;charset=utf-8;"
+    });
 
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = "questions.csv";  // 최종 완성본
+    link.download = "questions.csv";
     link.click();
 
     URL.revokeObjectURL(link.href);
 
     alert("📘 기존 CSV와 자동 병합된 최신 questions.csv가 다운로드되었습니다!");
 });
-
