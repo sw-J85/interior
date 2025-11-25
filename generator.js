@@ -1,163 +1,99 @@
-// ============================
-// 1) CSV 헤더 정의
-// ============================
+/****************************************************
+ *  CBT-A 문제 생성기 (openai.js 완전 통합 버전)
+ *  — 모든 문제 생성은 openai.js generateProblem() 사용
+ ****************************************************/
+
+import { generateProblem } from "./openai.js";
+
+/***********************************************
+ * CSV 헤더
+ ***********************************************/
 const CSV_HEADERS = [
     "문항번호","단원","문제유형","문제","선택지1","선택지2","선택지3","선택지4",
     "LeftItems","RightItems","정답","해설","근거파일","근거페이지",
     "핵심요약","문제코드","출제자"
 ];
 
-// ⭐ GitHub raw CSV URL (정확한 경로)
+/***********************************************
+ * GitHub raw CSV 경로
+ ***********************************************/
 const CSV_URL = "https://raw.githubusercontent.com/sw-J85/interior/main/data/questions.csv";
 
-
-// ============================
-// 2) CSV 불러오기 (CORS 대응 + 안정 버전)
-// ============================
+/***********************************************
+ * 기존 CSV 불러오기
+ ***********************************************/
 async function loadExistingCSV() {
     try {
-        const res = await fetch(CSV_URL, {
-            headers: {
-                "Cache-Control": "no-cache"
-            }
-        });
-
-        if (!res.ok) {
-            console.error("CSV fetch 실패:", res.status);
-            return [];
-        }
-
+        const res = await fetch(CSV_URL, { headers: { "Cache-Control": "no-cache" }});
         const text = await res.text();
 
-        if (!text.trim()) {
-            console.warn("CSV 파일이 비어 있음");
-            return [];
-        }
+        if (!text.trim()) return [];
 
         const parsed = Papa.parse(text, { header: true, skipEmptyLines: true }).data;
-
-        return parsed.filter(row => row["문항번호"] && row["문항번호"].trim() !== "");
-
+        return parsed.filter(r => r["문항번호"]?.trim());
     } catch (err) {
-        console.error("CSV 불러오기 실패:", err);
+        console.error("CSV 로딩 실패:", err);
         return [];
     }
 }
 
-
-// ============================
-// 3) 마지막 문항번호
-// ============================
-function getLastQuestionNumber(rows) {
+/***********************************************
+ * 마지막 문항 번호 찾기
+ ***********************************************/
+function getLastNumber(rows) {
     if (rows.length === 0) return 1;
 
     let nums = rows.map(r => parseInt(r["문항번호"])).filter(n => !isNaN(n));
     return Math.max(...nums) + 1;
 }
 
-
-// ============================
-// 4) 문제 코드 자동 생성
-// ============================
-function generateQuestionCode(unit, type, number) {
-    const unitCode = {
-        "자료조사분석": "RA",
-        "기획": "BP",
-        "시공관리": "SP",
-        "기본계획": "CM",
-        "세부공간계획": "XX",
-        "실무도서작성": "PR",
-        "설계도서작성": "DR",
-        "프레젠테이션": "PT"
+/***********************************************
+ * 문제코드 자동 생성
+ ***********************************************/
+function makeCode(unit, type, num) {
+    const U = {
+        "자료조사분석":"RA","기획":"BP","시공관리":"SP","기본계획":"CM",
+        "세부공간계획":"XX","실무도서작성":"PR","설계도서작성":"DR","프레젠테이션":"PT"
     }[unit] || "UN";
 
-    const typeCode = {
-        "4지선다형": "SS",
-        "복수선택형": "MM",
-        "진위형": "TF",
-        "단답형": "SA",
-        "연결형": "MT"
+    const T = {
+        "4지선다형":"SS","복수선택형":"MM","진위형":"TF","단답형":"SA","연결형":"MT"
     }[type] || "UK";
 
-    let n = String(number).padStart(3, "0");
-    return `${unitCode}-${typeCode}-${n}`;
+    return `${U}-${T}-${String(num).padStart(3,"0")}`;
 }
 
+/***********************************************
+ * GPT 문제 생성 (openai.js 사용)
+ ***********************************************/
+async function createProblem(unit, type) {
 
-// ============================
-// 5) GPT 문제 생성 요청
-// ============================
-async function requestQuestion(unit, qtype) {
-    const apiKey = localStorage.getItem("openai_api_key");
-    if (!apiKey) {
-        alert("API KEY가 저장되어 있지 않습니다.");
-        return null;
-    }
+    // ✨ openai.js의 SYSTEM_PROMPT는 이미 엄격한 CBT-A 기준을 포함함
+    // 우리는 단지 "단원 + 문제유형"을 user prompt로 넘기면 됨
 
     const prompt = `
-당신은 '실내건축기사 CBT 문제 생성기'입니다.
-출력은 반드시 JSON 구조만 반환하세요.
+다음 정보를 기반으로 CBT-A 문제 1개 생성:
 
 단원: ${unit}
-문제유형: ${qtype}
-
-JSON 형식:
-{
-"문제": "",
-"선택지1": "",
-"선택지2": "",
-"선택지3": "",
-"선택지4": "",
-"LeftItems": "",
-"RightItems": "",
-"정답": "",
-"해설": "",
-"근거파일": "",
-"근거페이지": "",
-"핵심요약": ""
-}
+문제유형: ${type}
 `;
 
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-            "Authorization": `Bearer ${apiKey}`,
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            model: "gpt-4o-mini",
-            messages: [
-                { role: "system", content: "순수 JSON만 출력하라." },
-                { role: "user", content: prompt }
-            ],
-            temperature: 0.3
-        })
-    });
-
-    const data = await res.json();
-    let rawText = data.choices?.[0]?.message?.content?.trim() || "";
-
-    let cleaned = rawText
-        .replace(/```json/g, "")
-        .replace(/```/g, "")
-        .trim();
+    let raw = await generateProblem(prompt);   // openai.js의 공식 SYSTEM_PROMPT 사용
 
     try {
-        return JSON.parse(cleaned);
+        return JSON.parse(raw);
     } catch (e) {
-        console.error("JSON 파싱 실패:", cleaned);
-        alert("GPT가 올바른 JSON을 반환하지 않았습니다.");
+        console.error("JSON 파싱 실패:", raw);
         return null;
     }
 }
 
-
-// ============================
-// 6) CSV 한 줄 만들기
-// ============================
-function buildCSVRow(number, unit, type, author, q) {
+/***********************************************
+ * CSV Row 생성
+ ***********************************************/
+function makeRow(num, unit, type, author, q) {
     return {
-        "문항번호": number,
+        "문항번호": num,
         "단원": unit,
         "문제유형": type,
         "문제": q.문제 || "",
@@ -172,60 +108,52 @@ function buildCSVRow(number, unit, type, author, q) {
         "근거파일": q.근거파일 || "",
         "근거페이지": q.근거페이지 || "",
         "핵심요약": q.핵심요약 || "",
-        "문제코드": generateQuestionCode(unit, type, number),
+        "문제코드": makeCode(unit, type, num),
         "출제자": author
     };
 }
 
-
-// ============================
-// 7) 메인 로직 — 자동 merge 버전
-// ============================
+/***********************************************
+ * MAIN — 자동 merge + CSV 다운로드
+ ***********************************************/
 document.getElementById("generateBtn").addEventListener("click", async () => {
-    const unit = document.getElementById("unitSelect").value;
-    const type = document.getElementById("typeSelect").value;
-    const count = parseInt(document.getElementById("countInput").value);
-    const author = document.getElementById("authorInput").value.trim();
+    const unit = unitSelect.value;
+    const type = typeSelect.value;
+    const count = parseInt(countInput.value);
+    const author = authorInput.value.trim();
 
     if (!unit || !type) {
-        alert("단원과 문제유형을 선택해주세요.");
+        alert("단원과 문제유형을 선택하세요.");
         return;
     }
 
-    // 1) 기존 CSV 로드
     const oldRows = await loadExistingCSV();
-    let startNumber = getLastQuestionNumber(oldRows);
+    let nextNum = getLastNumber(oldRows);
 
     let newRows = [];
-    document.getElementById("previewBox").innerHTML = "";
+    previewBox.innerHTML = "";
 
-    // 2) 새로운 문제 생성
     for (let i = 0; i < count; i++) {
-        const q = await requestQuestion(unit, type);
+        const q = await createProblem(unit, type);
         if (!q) continue;
 
-        const number = startNumber + i;
-        const row = buildCSVRow(number, unit, type, author, q);
+        const num = nextNum + i;
+        const row = makeRow(num, unit, type, author, q);
         newRows.push(row);
 
-        document.getElementById("previewBox").innerHTML += `
+        previewBox.innerHTML += `
             <div class="preview-item">
-                <b>${number}. ${row.문제}</b><br>
+                <b>${num}. ${row.문제}</b><br>
                 <small>${row.문제코드} | ${row.출제자}</small>
             </div>
         `;
     }
 
-    // 3) merge
     const merged = [...oldRows, ...newRows];
 
-    // 4) 다운로드 (Excel 한글 깨짐 방지)
     const csv = Papa.unparse(merged, { header: true });
     const BOM = "\uFEFF";
-
-    const blob = new Blob([BOM + csv], {
-        type: "text/csv;charset=utf-8;"
-    });
+    const blob = new Blob([BOM + csv], { type:"text/csv;charset=utf-8;" });
 
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -234,5 +162,5 @@ document.getElementById("generateBtn").addEventListener("click", async () => {
 
     URL.revokeObjectURL(link.href);
 
-    alert("📘 기존 CSV와 자동 병합된 최신 questions.csv가 다운로드되었습니다!");
+    alert("📘 기존 + 신규 문제 모두 포함된 최신 questions.csv가 생성되었습니다!");
 });
