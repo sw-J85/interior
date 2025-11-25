@@ -244,3 +244,75 @@ document.getElementById("generateBtn").addEventListener("click", async () => {
 
     alert("📘 기존 + 신규 문제 자동 병합된 최신 questions.csv가 완성되었습니다!");
 });
+
+
+
+// ======================================
+// ⭐ 전 과목 랜덤 40문항 생성 기능
+// ======================================
+
+document.getElementById("random40Btn").addEventListener("click", async () => {
+
+    const unitList = [
+        "자료조사분석",
+        "기획",
+        "시공관리",
+        "기본계획",
+        "세부공간계획",
+        "실무도서작성",
+        "설계도서작성",
+        "프레젠테이션"
+    ];
+
+    const typeList = [
+        "4지선다형",
+        "복수선택형",
+        "진위형",
+        "단답형",
+        "연결형"
+    ];
+
+    const oldRows = await loadExistingCSV();
+    const start = getLastQuestionNumber(oldRows);
+
+    let newRows = [];
+    previewBox.innerHTML = "";
+
+    for (let i = 0; i < 40; i++) {
+        const randomUnit = unitList[Math.floor(Math.random() * unitList.length)];
+        const randomType = typeList[Math.floor(Math.random() * typeList.length)];
+
+        const q = await requestQuestion(randomUnit, randomType);
+        if (!q) continue;
+
+        const number = start + i;
+        const row = buildCSVRow(number, randomUnit, randomType, "마스터", q);
+
+        newRows.push(row);
+
+        previewBox.innerHTML += `
+            <div class="preview-item">
+                <b>${number}. [${randomUnit}/${randomType}] ${row.문제}</b><br>
+                <small>${row.문제코드}</small>
+            </div>
+        `;
+    }
+
+    // 자동 merge
+    const merged = [...oldRows, ...newRows];
+
+    const csv = Papa.unparse(merged, { header: true });
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + csv], {
+        type: "text/csv;charset=utf-8;"
+    });
+
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "questions.csv";
+    link.click();
+
+    URL.revokeObjectURL(link.href);
+
+    alert("📘 전 과목 랜덤 40문항이 생성되었습니다!");
+});
