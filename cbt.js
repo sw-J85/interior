@@ -48,16 +48,17 @@ function renderQuestion(q) {
   document.getElementById("choices").innerHTML = "";
   document.getElementById("nextBtn").classList.add("hidden");
 
-  // 문제 유형에 따라 UI 렌더링
-  if (type === "단일선택형") showSingleChoice(q);
-  else if (type === "복수선택형") showMultiChoice(q);
-  else if (type === "진위형") showTrueFalse(q);
-  else if (type === "연결형") showMatching(q);
-  else if (type === "약술형") showEssay(q);
-  else {
-    document.getElementById("choices").innerHTML =
-      `<p style="color:red">⚠ 알 수 없는 문제유형: ${type}</p>`;
-  }
+    // 문제유형 자동 감지
+    if (type === "4지선다형") showSingleChoice(q);
+    else if (type === "복수선택형") showMultiChoice(q);
+    else if (type === "진위형") showTrueFalse(q);
+    else if (type === "연결형") showMatching(q);
+    else if (type === "단답형") showEssay(q);
+    else {
+        document.getElementById("choices").innerHTML =
+        `<p style="color:red">⚠ 알 수 없는 문제유형: ${type}</p>`;
+}
+
 }
 
 /***************************************************
