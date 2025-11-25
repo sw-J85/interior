@@ -114,16 +114,17 @@
 
     <!-- JS 파일 불러오기 -->
     <script type="module">
-        import { setApiKey } from "./openai.js";
-        import "./generator.js";
+    import { setApiKey } from "./openai.js";
+    import "./generator.js?v=9999";
 
-        window.saveKey = function() {
-            const key = document.getElementById("apiKeyInput").value.trim();
-            if (!key) return alert("API KEY를 입력하세요.");
-            setApiKey(key);
-            alert("API KEY 저장 완료");
-        };
+    window.saveKey = function() {
+        const key = document.getElementById("apiKeyInput").value.trim();
+        if (!key) return alert("API KEY를 입력하세요.");
+        setApiKey(key);
+        alert("API KEY 저장 완료");
+    };
     </script>
+
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
 
