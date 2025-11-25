@@ -138,7 +138,7 @@ async function requestQuestion(unit, qtype) {
             "Content-Type": "application/json"
         },
         body: JSON.stringify({
-            model: "gpt-4o-mini",
+            model: "gpt-5o",
             messages: [
                 { role: "system", content: "반드시 순수 JSON만 출력하라." },
                 { role: "user", content: prompt }
