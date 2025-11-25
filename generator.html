@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>문제 자동 생성기</title>
+
+    <!-- PapaParse (CSV 처리) CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+    <script src="js/openai.js"></script>
+    <script src="js/csv.js"></script>
+    <script src="js/generator.js"></script>
+
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        #log { margin-top: 20px; white-space: pre-wrap; }
+        select, button { padding: 10px; margin: 5px; }
+    </style>
+</head>
+<body>
+
+<h2>📘 CBT-A 문제 자동 생성기</h2>
+
+<label>단원 선택:</label>
+<select id="unit">
+  <option>자료조사분석</option>
+  <option>기획</option>
+  <option>시공관리</option>
+  <option>기본계획</option>
+  <option>세부공간계획</option>
+  <option>실무도서작성</option>
+  <option>설계도서작성</option>
+  <option>프레젠테이션</option>
+</select>
+
+<label>난이도:</label>
+<select id="difficulty">
+  <option value="1">단계1</option>
+  <option value="2">단계2</option>
+  <option value="3" selected>단계3(기출유형)</option>
+</select>
+
+<br><br>
+
+<button id="generateBtn">문제 자동 생성</button>
+
+<div id="log"></div>
+
+</body>
+</html>

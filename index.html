@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CBT 시스템</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+    <div class="container">
+        <h1>실내건축기사 CBT</h1>
+
+        <button id="startBtn">문제 시작하기</button>
+
+        <div id="quizBox" class="hidden">
+            <div id="questionText"></div>
+            <div id="choices"></div>
+
+            <button id="submitBtn">정답 제출</button>
+            <div id="result"></div>
+            <button id="nextBtn" class="hidden">다음 문제</button>
+        </div>
+    </div>
+
+    <script src="cbt.js"></script>
+</body>
+</html>
