@@ -167,17 +167,24 @@ function buildCSVRow(number, unit, type, author, q) {
 
 
 // ============================
-// 7) CSV 다운로드
+// 7) CSV 다운로드 (UTF-8 BOM 추가 버전)
 // ============================
 function downloadCSV(rows) {
     const csv = Papa.unparse(rows, { header: true });
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+
+    // ⭐ Excel 한글 깨짐 방지: UTF-8 BOM 추가
+    const BOM = "\uFEFF";
+
+    const blob = new Blob([BOM + csv], {
+        type: "text/csv;charset=utf-8;"
+    });
 
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = "generated_questions.csv";
     link.click();
 }
+
 
 
 // ============================
