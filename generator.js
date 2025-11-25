@@ -316,3 +316,93 @@ document.getElementById("random40Btn").addEventListener("click", async () => {
 
     alert("📘 전 과목 랜덤 40문항이 생성되었습니다!");
 });
+
+
+// =============================
+// ★ Stable 버전 requestQuestion()
+// =============================
+async function requestQuestion_Stable(unit, qtype) {
+    const apiKey = localStorage.getItem("openai_api_key");
+
+    if (!apiKey) {
+        alert("API KEY가 저장되어 있지 않습니다.");
+        return null;
+    }
+
+    const prompt = `
+당신은 ‘실내건축기사 과정평가형 CBT 문제 생성기’입니다.
+반드시 JSON만 출력하십시오.
+
+출력 형식(JSON):
+{
+ "문제": "",
+ "선택지1": "",
+ "선택지2": "",
+ "선택지3": "",
+ "선택지4": "",
+ "LeftItems": "",
+ "RightItems": "",
+ "정답": "",
+ "해설": "",
+ "근거파일": "",
+ "근거페이지": "",
+ "핵심요약": ""
+}
+
+단원: ${unit}
+문제유형: ${qtype}
+`;
+
+    const maxRetry = 5;
+    let retry = 0;
+
+    while (retry < maxRetry) {
+        try {
+            const res = await fetch("https://api.openai.com/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${apiKey}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    model: "gpt-4o-mini",
+                    messages: [
+                        { role: "system", content: "반드시 순수 JSON만 출력하라." },
+                        { role: "user", content: prompt }
+                    ],
+                    temperature: 0.1
+                })
+            });
+
+            if (res.status === 429) {
+                retry++;
+                await new Promise(r => setTimeout(r, 1000));
+                continue;
+            }
+
+            const data = await res.json();
+            let raw = data.choices?.[0]?.message?.content?.trim() || "";
+
+            let cleaned = raw
+                .replace(/```json/g, "")
+                .replace(/```/g, "")
+                .replace(/[\u0000-\u001F]+/g, "")
+                .trim();
+
+            let parsed = JSON.parse(cleaned);
+            return parsed;
+
+        } catch (err) {
+            retry++;
+            await new Promise(r => setTimeout(r, 1000));
+        }
+    }
+
+    return null;
+}
+
+// =============================
+// ★ 기존 요청 함수 완전 교체
+// =============================
+requestQuestion = requestQuestion_Stable;
+
