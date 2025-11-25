@@ -1,13 +1,14 @@
 /***************************************************
- *  CBT 문제 엔진 (드래그 매칭형 포함 완전판)
+ *  CBT 문제 엔진 (드래그 매칭형 + 문제유형 정규화 버전)
  *  by 마스터 × ChatGPT
  ***************************************************/
 
-// ★ GitHub RAW CSV URL
 const csvUrl =
   "https://raw.githubusercontent.com/sw-J85/interior/main/data/questions.csv";
 
-// ★ PapaParse로 CSV 불러오기
+/***************************************************
+ * CSV 로딩
+ ***************************************************/
 async function loadCSV() {
   const res = await fetch(csvUrl);
   const text = await res.text();
@@ -22,46 +23,52 @@ async function loadCSV() {
 
 let currentQuestion = null;
 
-// =============================================
-//  시작 버튼
-// =============================================
+/***************************************************
+ * 시작 버튼
+ ***************************************************/
 document.getElementById("startBtn").addEventListener("click", async () => {
   const data = await loadCSV();
-
-  // 랜덤 문제 선택
   currentQuestion = data[Math.floor(Math.random() * data.length)];
-
   renderQuestion(currentQuestion);
 });
 
-// =============================================
-// 문제 출력 (문제유형 자동 감지)
-// =============================================
+/***************************************************
+ * 문제 출력
+ ***************************************************/
 function renderQuestion(q) {
   document.getElementById("quizBox").classList.remove("hidden");
 
   const type = q["문제유형"]?.trim();
-  const questionText = q["문제"];
-
-  document.getElementById("questionText").innerText = questionText;
+  document.getElementById("questionText").innerText = q["문제"];
   document.getElementById("result").innerHTML = "";
   document.getElementById("choices").innerHTML = "";
   document.getElementById("nextBtn").classList.add("hidden");
 
-  // 문제 유형 자동감지
-  if (type === "4지선다형") showSingleChoice(q);
-  else if (type === "복수선택형") showMultiChoice(q);
-  else if (type === "진위형") showTrueFalse(q);
-  else if (type === "연결형") showMatching(q); // ★ 드래그 매칭형
-  else if (type === "단답형") showEssay(q);
-  else {
-    document.getElementById("choices").innerHTML =
-      `<p style="color:red">⚠ 알 수 없는 문제유형: ${type}</p>`;
+  // 문제유형 라우팅
+  switch (type) {
+    case "4지선다형":
+      showSingleChoice(q);
+      break;
+    case "복수선택형":
+      showMultiChoice(q);
+      break;
+    case "진위형":
+      showTrueFalse(q);
+      break;
+    case "연결형":
+      showMatching(q);
+      break;
+    case "단답형":
+      showEssay(q);
+      break;
+    default:
+      document.getElementById("choices").innerHTML =
+        `<p style="color:red">⚠ 알 수 없는 문제유형: ${type}</p>`;
   }
 }
 
 /***************************************************
- * ① 단일선택형 (4지선다)
+ * ① 4지선다형
  ***************************************************/
 function showSingleChoice(q) {
   let html = "";
@@ -76,8 +83,8 @@ function showSingleChoice(q) {
       `;
     }
   }
-  document.getElementById("choices").innerHTML = html;
 
+  document.getElementById("choices").innerHTML = html;
   document.getElementById("submitBtn").onclick = () => checkSingleChoice(q);
 }
 
@@ -87,12 +94,11 @@ function checkSingleChoice(q) {
 
   const correct = q["정답"].trim();
   const user = selected.value;
-
   showResult(user === correct, q);
 }
 
 /***************************************************
- * ② 복수선택형 (체크박스)
+ * ② 복수선택형
  ***************************************************/
 function showMultiChoice(q) {
   let html = "";
@@ -107,8 +113,8 @@ function showMultiChoice(q) {
       `;
     }
   }
-  document.getElementById("choices").innerHTML = html;
 
+  document.getElementById("choices").innerHTML = html;
   document.getElementById("submitBtn").onclick = () => checkMultiChoice(q);
 }
 
@@ -130,8 +136,8 @@ function checkMultiChoice(q) {
  ***************************************************/
 function showTrueFalse(q) {
   document.getElementById("choices").innerHTML = `
-      <button class="oxBtn" data-value="O">O</button>
-      <button class="oxBtn" data-value="X">X</button>
+    <button class="oxBtn" data-value="O">O</button>
+    <button class="oxBtn" data-value="X">X</button>
   `;
 
   document.querySelectorAll(".oxBtn").forEach((btn) => {
@@ -144,14 +150,26 @@ function showTrueFalse(q) {
 }
 
 /***************************************************
- * ④ 연결형 (드래그 & 드롭 카드 방식)
+ * ④ 연결형 (드래그 매칭)
  ***************************************************/
-function showMatching(q) {
-  const leftItems = q["LeftItems"].split(",");
-  const rightItems = q["RightItems"].split(",");
 
-  // 왼쪽 카드: A,B,C,D 자동 라벨링
+// 세미콜론/콤마/A: 등 정규화 함수
+function normalizeItems(str) {
+  return str
+    .replace(/A:|B:|C:|D:/g, "")
+    .replace(/1:|2:|3:|4:/g, "")
+    .replace(/,/g, ";") // 콤마도 세미콜론으로 통합
+    .split(";")
+    .map((s) => s.trim())
+    .filter((s) => s !== "");
+}
+
+function showMatching(q) {
+  const leftItems = normalizeItems(q["LeftItems"]);
+  const rightItems = normalizeItems(q["RightItems"]);
+
   const leftLabels = ["A", "B", "C", "D"];
+
   let leftHTML = "<div id='leftCol'>";
   leftItems.forEach((item, idx) => {
     leftHTML += `
@@ -159,13 +177,11 @@ function showMatching(q) {
            draggable="true"
            data-left="${leftLabels[idx]}"
            id="card_${leftLabels[idx]}">
-        <b>${leftLabels[idx]}.</b> ${item.trim()}
-      </div>
-    `;
+        <b>${leftLabels[idx]}.</b> ${item}
+      </div>`;
   });
   leftHTML += "</div>";
 
-  // 오른쪽 슬롯: 1,2,3,4 자동 라벨링
   let rightHTML = "<div id='rightCol'>";
   rightItems.forEach((item, idx) => {
     const rNum = idx + 1;
@@ -173,9 +189,8 @@ function showMatching(q) {
       <div class="rightSlot"
            data-right="${rNum}"
            id="slot_${rNum}">
-        <b>${rNum}.</b> ${item.trim()}
-      </div>
-    `;
+        <b>${rNum}.</b> ${item}
+      </div>`;
   });
   rightHTML += "</div>";
 
@@ -185,7 +200,7 @@ function showMatching(q) {
   setupDragDrop();
 }
 
-let matchState = {}; // 예: { A:3, B:1, C:4, D:2 }
+let matchState = {};
 
 function setupDragDrop() {
   const cards = document.querySelectorAll(".leftCard");
@@ -202,80 +217,69 @@ function setupDragDrop() {
 
     slot.addEventListener("drop", (e) => {
       e.preventDefault();
-      const leftLabel = e.dataTransfer.getData("text/plain");
 
-      // 해당 카드 DOM 얻기
+      const leftLabel = e.dataTransfer.getData("text/plain");
       const card = document.querySelector(`#card_${leftLabel}`);
 
-      // 슬롯에 카드가 이미 있으면 기존 카드 원위치
       if (slot.firstElementChild && slot.firstElementChild.classList.contains("leftCard")) {
         const oldCard = slot.firstElementChild;
         document.getElementById("leftCol").appendChild(oldCard);
       }
 
       slot.appendChild(card);
-
-      // 매칭 상태 업데이트
       matchState[leftLabel] = slot.dataset.right;
     });
   });
 
-  // 제출 버튼 연결
   document.getElementById("submitBtn").onclick = () => checkMatchingAnswer();
 }
 
 function checkMatchingAnswer() {
-  const q = currentQuestion;
-  const correctStr = q["정답"].trim(); // 예: "A3 B1 C4 D2"
+  const correctStr = currentQuestion["정답"].trim(); // "A3 B1 C4 D2"
   const correctPairs = correctStr.split(" ");
 
-  // correctPairs → ["A3","B1","C4","D2"]
   let ok = true;
 
   correctPairs.forEach((pair) => {
     const L = pair[0];
     const R = pair.substring(1);
-
     if (matchState[L] !== R) ok = false;
   });
 
-  showResult(ok, q);
+  showResult(ok, currentQuestion);
 }
 
 /***************************************************
- * ⑤ 단답형 (주관식)
+ * ⑤ 단답형
  ***************************************************/
 function showEssay(q) {
   document.getElementById("choices").innerHTML = `
     <textarea id="essayInput" placeholder="답안을 입력하세요"></textarea>
   `;
 
-  document.getElementById("submitBtn").onclick = () => checkEssay(q);
-}
-
-function checkEssay(q) {
-  const user = document.getElementById("essayInput").value.trim();
-  const correct = q["정답"].trim();
-
-  const ok = user === correct;
-
-  showResult(ok, q);
+  document.getElementById("submitBtn").onclick = () => {
+    const user = document.getElementById("essayInput").value.trim();
+    const ok = user === q["정답"].trim();
+    showResult(ok, q);
+  };
 }
 
 /***************************************************
- * 결과 & 해설 표시
+ * 해설 + 출제자 표시
  ***************************************************/
 function showResult(isCorrect, q) {
   const box = document.getElementById("result");
 
-  if (isCorrect) box.innerHTML = "✔ 정답입니다!";
-  else box.innerHTML = `❌ 오답입니다.<br>정답: ${q["정답"]}`;
+  box.innerHTML = isCorrect
+    ? "✔ 정답입니다!"
+    : `❌ 오답입니다.<br>정답: ${q["정답"]}`;
 
   box.innerHTML += `
     <hr>
     <p><b>해설:</b> ${q["해설"] ?? ""}</p>
     <p><b>근거:</b> ${q["근거파일"] ?? ""} / ${q["근거페이지"] ?? ""}</p>
     <p><b>핵심요약:</b> ${q["핵심요약"] ?? ""}</p>
+    <p><b>출제자:</b> ${q["출제자"] ?? "미기재"}</p>
   `;
 
   document.getElementById("nextBtn").classList.remove("hidden");
