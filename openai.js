@@ -3,6 +3,10 @@
 // ============================================
 
 // 💾 API KEY 저장
+
+
+
+// This file is a module
 export function setApiKey(key) {
     localStorage.setItem("openai_api_key", key);  // 통일된 KEY 이름
 }
