@@ -188,7 +188,7 @@ function downloadCSV(rows) {
 
 
 // ============================
-// 8) 메인 로직
+// 8) 메인 로직 — 자동 merge 버전
 // ============================
 document.getElementById("generateBtn").addEventListener("click", async () => {
     const unit = document.getElementById("unitSelect").value;
@@ -201,12 +201,14 @@ document.getElementById("generateBtn").addEventListener("click", async () => {
         return;
     }
 
+    // 1) 기존 CSV 로드
     const oldRows = await loadExistingCSV();
     let startNumber = getLastQuestionNumber(oldRows);
 
     let newRows = [];
     document.getElementById("previewBox").innerHTML = "";
 
+    // 2) 새로운 문제 생성
     for (let i = 0; i < count; i++) {
         const q = await requestQuestion(unit, type);
         if (!q) continue;
@@ -215,6 +217,7 @@ document.getElementById("generateBtn").addEventListener("click", async () => {
         const row = buildCSVRow(number, unit, type, author, q);
         newRows.push(row);
 
+        // 미리보기 표시
         document.getElementById("previewBox").innerHTML += `
             <div class="preview-item">
                 <b>${number}. ${row.문제}</b><br>
@@ -223,5 +226,21 @@ document.getElementById("generateBtn").addEventListener("click", async () => {
         `;
     }
 
-    downloadCSV(newRows);
+    // 3) 기존 CSV + 신규 문제 자동 merge
+    const merged = [...oldRows, ...newRows];
+
+    // 4) 자동 merge된 최신 questions.csv 다운로드
+    const csv = Papa.unparse(merged, { header: true });
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8;" });
+
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "questions.csv";  // 최종 완성본
+    link.click();
+
+    URL.revokeObjectURL(link.href);
+
+    alert("📘 기존 CSV와 자동 병합된 최신 questions.csv가 다운로드되었습니다!");
 });
+
