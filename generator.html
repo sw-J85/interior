@@ -1,50 +1,129 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <title>문제 자동 생성기</title>
-
-    <!-- PapaParse (CSV 처리) CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-
-    <script src="js/openai.js"></script>
-    <script src="js/csv.js"></script>
-    <script src="js/generator.js"></script>
+    <meta charset="UTF-8" />
+    <title>CBT 문제 생성기</title>
 
     <style>
-        body { font-family: Arial; padding: 20px; }
-        #log { margin-top: 20px; white-space: pre-wrap; }
-        select, button { padding: 10px; margin: 5px; }
+        body {
+            font-family: Arial, sans-serif;
+            padding: 25px;
+            background: #f7f7f7;
+        }
+        h1 {
+            font-size: 26px;
+            margin-bottom: 10px;
+        }
+
+        .section {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 0 8px rgba(0,0,0,0.1);
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        select, input {
+            padding: 7px;
+            margin-top: 5px;
+            margin-bottom: 15px;
+            width: 100%;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+
+        #generateBtn {
+            background: #333;
+            color: white;
+            padding: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            border: none;
+            font-size: 16px;
+        }
+
+        #previewBox {
+            margin-top: 20px;
+        }
+
+        .preview-item {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            border-left: 5px solid #888;
+        }
     </style>
 </head>
+
 <body>
 
-<h2>📘 CBT-A 문제 자동 생성기</h2>
+    <h1>📘 CBT 문제 생성기</h1>
 
-<label>단원 선택:</label>
-<select id="unit">
-  <option>자료조사분석</option>
-  <option>기획</option>
-  <option>시공관리</option>
-  <option>기본계획</option>
-  <option>세부공간계획</option>
-  <option>실무도서작성</option>
-  <option>설계도서작성</option>
-  <option>프레젠테이션</option>
-</select>
+    <!-- API KEY 저장 -->
+    <div class="section">
+        <label>OpenAI API KEY</label>
+        <input type="password" id="apiKeyInput" placeholder="sk-..." />
+        <button onclick="saveKey()">API KEY 저장</button>
+    </div>
 
-<label>난이도:</label>
-<select id="difficulty">
-  <option value="1">단계1</option>
-  <option value="2">단계2</option>
-  <option value="3" selected>단계3(기출유형)</option>
-</select>
+    <!-- 문제 생성 옵션 -->
+    <div class="section">
+        <label>단원 선택</label>
+        <select id="unitSelect">
+            <option value="">-- 단원 선택 --</option>
+            <option value="자료조사분석">자료조사분석</option>
+            <option value="기획">기획</option>
+            <option value="시공관리">시공관리</option>
+            <option value="기본계획">기본계획</option>
+            <option value="세부공간계획">세부공간계획</option>
+            <option value="실무도서작성">실무도서작성</option>
+            <option value="설계도서작성">설계도서작성</option>
+            <option value="프레젠테이션">프레젠테이션</option>
+        </select>
 
-<br><br>
+        <label>문제유형</label>
+        <select id="typeSelect">
+            <option value="">-- 문제유형 선택 --</option>
+            <option value="4지선다형">4지선다형</option>
+            <option value="복수선택형">복수선택형</option>
+            <option value="진위형">진위형</option>
+            <option value="단답형">단답형</option>
+            <option value="연결형">연결형</option>
+        </select>
 
-<button id="generateBtn">문제 자동 생성</button>
+        <label>생성할 문제 수</label>
+        <input type="number" id="countInput" value="1" min="1" max="20" />
 
-<div id="log"></div>
+        <label>출제자(선택)</label>
+        <input type="text" id="authorInput" placeholder="예: 장승원" />
+
+        <button id="generateBtn">문제 생성하기</button>
+    </div>
+
+    <!-- 미리보기 -->
+    <div class="section">
+        <h2>🔍 생성된 문제 미리보기</h2>
+        <div id="previewBox"></div>
+    </div>
+
+    <!-- JS 파일 불러오기 -->
+    <script type="module">
+        import { setApiKey } from "./openai.js";
+        import "./generator.js";
+
+        window.saveKey = function() {
+            const key = document.getElementById("apiKeyInput").value.trim();
+            if (!key) return alert("API KEY를 입력하세요.");
+            setApiKey(key);
+            alert("API KEY 저장 완료");
+        };
+    </script>
 
 </body>
 </html>
